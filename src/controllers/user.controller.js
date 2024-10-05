@@ -4,6 +4,10 @@ import { User } from "../models/user.model.js";
 import { uploadOnCloudinary } from "../utils/cloudinary.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import jwt from "jsonwebtoken";
+import {
+  getCloudinaryPublicId,
+  deleteFromCloudinary,
+} from "../utils/deleteOldFile.js";
 
 const generateAccessAndRefreshTokens = async (userId) => {
   try {
@@ -251,7 +255,7 @@ const changeCurrentPassword = asyncHandler(async (req, res) => {
 const getCurrentUser = asyncHandler(async (req, res) => {
   return res
     .status(200)
-    .json( new ApiResponse(200, req.user, "Current user fetched successfully"));
+    .json(new ApiResponse(200, req.user, "Current user fetched successfully"));
 });
 
 const updateAccountDetails = asyncHandler(async (req, res) => {
@@ -280,16 +284,31 @@ const updateAccountDetails = asyncHandler(async (req, res) => {
 const updateUserAvatar = asyncHandler(async (req, res) => {
   const avatarLoaclPath = req.file?.path;
 
+  // Step 1: Check if avatar file is uploaded
   if (!avatarLoaclPath) {
     throw new ApiError(400, "Avatar file is missing");
   }
 
+  // Step 2: Retrieve the current user's data (to get the old avatar URL)
+  const currentUser = await User.findById(req.user?._id).select("avatar");
+
+  // Step 3: Upload the new avatar to Cloudinary
   const avatar = await uploadOnCloudinary(avatarLoaclPath);
 
   if (!avatar.url) {
     throw new ApiError(400, "Error while uploading on avatar");
   }
 
+  // Step 4: Delete the old avatar from Cloudinary if it exists
+  if (currentUser?.avatar) {
+    const oldAvatarPublicId = getCloudinaryPublicId(currentUser.avatar); // A utility function to get Cloudinary's public ID from URL
+
+    if (oldAvatarPublicId) {
+      await deleteFromCloudinary(oldAvatarPublicId); // Function to delete from Cloudinary
+    }
+  }
+
+  // Step 5: Update the user's avatar in the database with the new URL
   const user = await User.findByIdAndUpdate(
     req.user?._id,
     {
@@ -333,7 +352,6 @@ const updateUserCoverImage = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, user, "Cover image updated successfully"));
 });
 
-
 export {
   registerUser,
   loginUser,
@@ -345,5 +363,3 @@ export {
   updateUserAvatar,
   updateUserCoverImage,
 };
-
-
