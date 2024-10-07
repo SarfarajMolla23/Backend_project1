@@ -91,4 +91,3 @@ userSchema.methods.generateRefreshToken = function () {
 export const User = mongoose.model("User", userSchema);
 
 //JWT is a bearer token it's like a key those who have that key or token he can access that tokens.
-
