@@ -163,8 +163,8 @@ const logoutUser = asyncHandler(async (req, res) => {
   await User.findByIdAndUpdate(
     req.user._id,
     {
-      $set: {
-        refreshToken: undefined,
+      $unset: {
+        refreshToken: 1 // this removes the field from document
       },
     },
     {
@@ -282,48 +282,39 @@ const updateAccountDetails = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, user, "Acoount details updated successfully"));
 });
 
-const updateUserAvatar = asyncHandler(async (req, res) => {
-  const avatarLoaclPath = req.file?.path;
+const updateUserAvatar = asyncHandler(async(req, res) => {
+  const avatarLocalPath = req.file?.path
 
-  // Step 1: Check if avatar file is uploaded
-  if (!avatarLoaclPath) {
-    throw new ApiError(400, "Avatar file is missing");
+  if (!avatarLocalPath) {
+      throw new ApiError(400, "Avatar file is missing")
   }
 
-  // Step 2: Retrieve the current user's data (to get the old avatar URL)
-  const currentUser = await User.findById(req.user?._id).select("avatar");
+  //TODO: delete old image - assignment
 
-  // Step 3: Upload the new avatar to Cloudinary
-  const avatar = await uploadOnCloudinary(avatarLoaclPath);
+  const avatar = await uploadOnCloudinary(avatarLocalPath)
 
   if (!avatar.url) {
-    throw new ApiError(400, "Error while uploading on avatar");
+      throw new ApiError(400, "Error while uploading on avatar")
+      
   }
 
-  // Step 4: Delete the old avatar from Cloudinary if it exists
-  if (currentUser?.avatar) {
-    const oldAvatarPublicId = getCloudinaryPublicId(currentUser.avatar); // A utility function to get Cloudinary's public ID from URL
-
-    if (oldAvatarPublicId) {
-      await deleteFromCloudinary(oldAvatarPublicId); // Function to delete from Cloudinary
-    }
-  }
-
-  // Step 5: Update the user's avatar in the database with the new URL
   const user = await User.findByIdAndUpdate(
-    req.user?._id,
-    {
-      $set: {
-        avatar: avatar.url,
+      req.user?._id,
+      {
+          $set:{
+              avatar: avatar.url
+          }
       },
-    },
-    { new: true }
-  ).select("-password");
+      {new: true}
+  ).select("-password")
 
   return res
-    .status(200)
-    .json(new ApiResponse(200, user, "Avatar image updated successfully"));
-});
+  .status(200)
+  .json(
+      new ApiResponse(200, user, "Avatar image updated successfully")
+  )
+})
+
 
 const updateUserCoverImage = asyncHandler(async (req, res) => {
   const CoverImageLoaclPath = req.file?.path;
